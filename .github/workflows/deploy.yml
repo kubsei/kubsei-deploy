@@ -1,0 +1,44 @@
+name: Deploy
+
+# Manual: Actions > Deploy > Run workflow. Empty tag = keep the one pinned on the server.
+on:
+  workflow_dispatch:
+    inputs:
+      gateway:
+        description: "kubsei-gateway-java image tag (latest, commit SHA...)"
+        required: false
+      users:
+        description: "kubsei-users-java image tag"
+        required: false
+      editor:
+        description: "kubsei-editor-java image tag"
+        required: false
+
+concurrency: deploy-production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy over SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          GATEWAY: ${{ inputs.gateway }}
+          USERS: ${{ inputs.users }}
+          EDITOR: ${{ inputs.editor }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_ed25519
+          echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519
+
+          args=""
+          [ -n "$GATEWAY" ] && args="$args gateway=$GATEWAY"
+          [ -n "$USERS" ] && args="$args users=$USERS"
+          [ -n "$EDITOR" ] && args="$args editor=$EDITOR"
+
+          ssh "$SSH_USER@$SSH_HOST" "/opt/kubsei-deploy/deploy.sh $args"

@@ -1,0 +1,5 @@
+# Automatic HTTPS (Let's Encrypt) for the public API; everything goes to kubsei-gateway
+{$API_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy gateway:8080
+}

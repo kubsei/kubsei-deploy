@@ -1,0 +1,83 @@
+# Production stack of the kubsei backend: Caddy (HTTPS) -> gateway -> users / editor.
+# Only Caddy publishes ports; the services talk over the internal network.
+# MongoDB is external (Atlas), set through MONGODB_URI_*.
+#
+#   docker compose pull && docker compose up -d
+
+x-service: &service
+  restart: unless-stopped
+  networks: [kubsei]
+  deploy:
+    resources:
+      limits:
+        memory: 768M
+
+x-jwt: &jwt
+  JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+  JWT_ISSUER: ${JWT_ISSUER:-kubsei}
+
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?API_DOMAIN is required}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      kubsei:
+        ipv4_address: 172.28.0.10
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+  gateway:
+    <<: *service
+    image: ghcr.io/kubsei/kubsei-gateway-java:${GATEWAY_TAG:-latest}
+    environment:
+      <<: *jwt
+      USERS_URI: http://users:8080
+      EDITOR_URI: http://editor:8080
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required}
+      # Caddy's fixed address: the gateway extends its X-Forwarded-* headers only for this proxy
+      TRUSTED_PROXIES: '172\.28\.0\.10'
+    depends_on:
+      users:
+        condition: service_healthy
+      editor:
+        condition: service_healthy
+
+  users:
+    <<: *service
+    image: ghcr.io/kubsei/kubsei-users-java:${USERS_TAG:-latest}
+    environment:
+      <<: *jwt
+      MONGODB_URI: ${MONGODB_URI_USERS:?MONGODB_URI_USERS is required}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?GOOGLE_CLIENT_SECRET is required}
+      OAUTH2_SUCCESS_URL: ${FRONTEND_URL:?FRONTEND_URL is required}/workspace
+      OAUTH2_FAILURE_URL: ${FRONTEND_URL}/login?error=true
+
+  editor:
+    <<: *service
+    image: ghcr.io/kubsei/kubsei-editor-java:${EDITOR_TAG:-latest}
+    environment:
+      <<: *jwt
+      MONGODB_URI: ${MONGODB_URI_EDITOR:?MONGODB_URI_EDITOR is required}
+      GRAPHIQL_ENABLED: "false"
+
+networks:
+  kubsei:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  caddy_data:
+  caddy_config:
