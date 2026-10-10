@@ -62,7 +62,7 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?GOOGLE_CLIENT_SECRET is required}
       OAUTH2_SUCCESS_URL: ${FRONTEND_URL:?FRONTEND_URL is required}/workspace
-      OAUTH2_FAILURE_URL: ${FRONTEND_URL}/login?error=true
+      OAUTH2_FAILURE_URL: ${FRONTEND_URL}/auth/login?error=true
 
   editor:
     <<: *service
