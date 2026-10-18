@@ -5,6 +5,7 @@
 set -eu
 cd "$(dirname "$0")"
 
+caddyfile_before=$(git rev-parse HEAD:Caddyfile)
 git pull --ff-only
 
 for arg in "$@"; do
@@ -23,5 +24,7 @@ done
 
 docker compose pull
 docker compose up -d --remove-orphans
+# The Caddyfile is bind-mounted: after git replaces it, Caddy keeps the old one until restarted
+[ "$caddyfile_before" = "$(git rev-parse HEAD:Caddyfile)" ] || docker compose restart caddy
 docker image prune -f
 docker compose ps

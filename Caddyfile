@@ -1,5 +1,10 @@
 # Automatic HTTPS (Let's Encrypt) for the public API; everything goes to kubsei-gateway
 {$API_DOMAIN} {
 	encode zstd gzip
+	# Bigger bodies get 413 here, before Java: one huge request would exhaust a service's memory.
+	# 15MB keeps the largest project under MongoDB's 16MB document limit.
+	request_body {
+		max_size 15MB
+	}
 	reverse_proxy gateway:8080
 }
