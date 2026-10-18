@@ -41,4 +41,5 @@ jobs:
           [ -n "$USERS" ] && args="$args users=$USERS"
           [ -n "$EDITOR" ] && args="$args editor=$EDITOR"
 
-          ssh "$SSH_USER@$SSH_HOST" "/opt/kubsei-deploy/deploy.sh $args"
+          # The server key only runs deploy.sh (forced command): we send just its arguments
+          ssh -T "$SSH_USER@$SSH_HOST" $args

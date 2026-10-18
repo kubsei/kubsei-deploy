@@ -5,8 +5,13 @@
 set -eu
 cd "$(dirname "$0")"
 
-caddyfile_before=$(git rev-parse HEAD:Caddyfile)
-git pull --ff-only
+# Pull first, then run the version just pulled: a shell keeps reading the old file while git replaces it
+if [ -z "${CADDYFILE_BEFORE:-}" ]; then
+  CADDYFILE_BEFORE=$(git rev-parse HEAD:Caddyfile)
+  export CADDYFILE_BEFORE
+  git pull --ff-only
+  exec "$0" "$@"
+fi
 
 for arg in "$@"; do
   service=${arg%%=*}
@@ -25,6 +30,6 @@ done
 docker compose pull
 docker compose up -d --remove-orphans
 # The Caddyfile is bind-mounted: after git replaces it, Caddy keeps the old one until restarted
-[ "$caddyfile_before" = "$(git rev-parse HEAD:Caddyfile)" ] || docker compose restart caddy
+[ "$CADDYFILE_BEFORE" = "$(git rev-parse HEAD:Caddyfile)" ] || docker compose restart caddy
 docker image prune -f
 docker compose ps
